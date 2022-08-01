@@ -1,0 +1,187 @@
+select *
+from [athlete_events]
+
+----remove duplicate
+select Name,ID, SEX, Age, Height, Weight ,Team ,NOC,Games ,Year ,Season,City ,Sport ,Event ,Medal, COUNT(*) AS DUPLICATE
+from [dbo].[athlete_events]
+group by Name,ID, SEX, Age, Height, Weight ,Team ,NOC,Games ,Year ,Season,City ,Sport ,Event ,Medal
+having count(*)>1
+
+
+with Duplicate_CTE as (
+select Name,ID, SEX, Age, Height, Weight ,Team ,NOC,Games ,Year ,Season,City ,Sport ,Event ,Medal,
+ROW_NUMBER() over (partition by Name, SEX, Age, Height, Weight ,Team ,NOC,Games ,Year ,Season,City ,Sport ,Event ,Medal order by ID)
+ as dupcount
+from [dbo].[athlete_events]  )
+
+delete from Duplicate_CTE
+ where dupcount>1
+
+ --analysis
+ 1. How many olympics games have been held?
+ 
+ select count(distinct Games) as total_olympics_games
+ from [dbo].[athlete_events]
+
+2. List down all Olympics games held so far.
+
+ select distinct(YEAR),Season,City
+ from [dbo].[athlete_events]
+ order by Year
+
+ 3. Mention the total no of nations who participated in each olympics game?
+ select distinct(Games), COUNT(distinct NOC) as total_countries
+ from [dbo].[athlete_events]
+ group by Games
+ order by Games
+
+
+ 4. Which year saw the highest and lowest no of countries participating in olympics.
+
+ select  distinct(Games), COUNT(distinct NOC) as total_countries 
+ from [dbo].[athlete_events]  
+ group by Games
+ order by COUNT(distinct NOC) 
+
+ select  distinct(Games), COUNT(distinct NOC) as total_countries 
+ from [dbo].[athlete_events]  
+ group by Games
+ order by COUNT(distinct NOC) desc
+
+
+ 5. Which nation has participated in all of the olympic games.
+
+ select (NOC) ,COUNT(distinct Games) as total_games
+ from [dbo].[athlete_events]  
+ group by NOC
+ having COUNT(distinct games) = 51
+
+ 6. Identify the sport which was played in all summer olympics.
+
+ with t1 as ( select COUNT(distinct games) as total_summer_games
+ from [dbo].[athlete_events] 
+ where Season = 'summer' ) ,
+ t2 as 
+ (select distinct (Sport), Games
+ from [dbo].[athlete_events]
+ where Season = 'summer' ),
+ t3 as
+ (select Sport ,COUNT(games) as no_of_games
+ from t2 
+ group by Sport )
+ select *
+ from t3
+ join t1 on t1.total_summer_games = t3.no_of_games 
+
+ 7. Which Sports were just played only once in the olympics.
+
+ with t1 as 
+ (select distinct Games,( sport)
+ from [dbo].[athlete_events] ) ,
+ t2 as 
+ (select sport ,count(1) as no_of_games
+ from t1 
+ group by Sport )
+ select t2.*,t1.Games
+ from t2
+ join t1 on t1.Sport = t2.Sport
+ where t2.no_of_games = 1
+ order by Games
+
+ 8. Fetch the total no of sports played in each olympic games.
+
+ select distinct(Games) ,count(distinct Sport) as total_sport
+ from [dbo].[athlete_events]
+ group by Games
+ order by total_sport desc
+
+ 9. Fetch oldest athletes to win a gold medal.
+
+ select  *
+ from [dbo].[athlete_events]
+ where Medal ='Gold' and not Age = 'NA'
+ order by Age desc
+
+ 10. Find the Ratio of male and female athletes participated in all olympic games.
+
+  select sex, count(sex) as cnt
+        	from [dbo].[athlete_events]
+        	group by sex
+ 
+ 11. Fetch the top 10 athletes who have won the most gold medals.
+
+ select top 10 Name , sport, team ,count(medal) as top_gold
+ from [dbo].[athlete_events]
+where Medal = 'Gold'
+ group by Name, Team ,Sport
+ order by top_gold desc
+
+ 12. Fetch the top 10 athletes who have won the most medals (gold/silver/bronze).
+
+ select top 10 Name , sport, team ,count(medal) as top_medals
+ from [dbo].[athlete_events]
+where not Medal = 'NA'
+ group by Name, Team ,Sport
+ order by top_medals desc
+
+ 13. Fetch the top 5 most successful countries in olympics. Success is defined by no of medals won.
+
+ select top 5 NOC ,count(medal) as top_medals
+ from [dbo].[athlete_events]
+where not Medal = 'NA'
+ group by NOC
+ order by top_medals desc
+
+ 14. List down total gold, silver and bronze medals won by each country.
+
+
+ select region as country ,medal ,count(medal) as medals
+ from [athlete_events] 
+  join [dbo].[noc_regions]  on athlete_events.NOC = [dbo].[noc_regions].NOC
+where  Medal <> 'NA'
+ group by region ,Medal
+ order by country 
+
+ 15. List down total gold, silver and bronze medals won by each country corresponding to each olympic games.
+
+ select  Games,region as country ,Medal , count(medal) as medals
+ from [dbo].[athlete_events]
+ join [dbo].[noc_regions]  on athlete_events.NOC = [dbo].[noc_regions].NOC
+where not Medal = 'NA'
+ group by games ,region ,Medal 
+ order by Games 
+
+ 16. Identify which country won the most gold, most silver and most bronze medals in each olympic games.
+
+  select   Games,region as country ,Medal , count(medal) as medals
+ from [dbo].[athlete_events]
+ join [dbo].[noc_regions]  on athlete_events.NOC = [dbo].[noc_regions].NOC
+where not Medal = 'NA'
+ group by games ,region ,Medal 
+ order by Games ,medals desc
+
+
+ 17. Which countries have never won gold medal but have won silver/bronze medals?
+
+   select   region as country ,Medal , count(medal) as medals
+ from [dbo].[athlete_events]
+ join [dbo].[noc_regions]  on athlete_events.NOC = [dbo].[noc_regions].NOC
+where  Medal <> 'NA' and medal <> 'gold'
+ group by games ,region ,Medal 
+ order by Games ,medals desc
+
+ 18. In which Sport/event, India has won highest medals.
+
+  select    Sport , COUNT(medal) as medals
+  from [dbo].[athlete_events]
+  where NOC = 'IND' and Medal <> 'NA'
+  group by Sport
+  order by medals desc
+
+  20. Break down all olympic games where India won medal for Hockey and how many medals in each olympic games?
+
+  select    games ,Sport , COUNT(medal) as medals
+  from [dbo].[athlete_events]
+  where Team = 'india' and Medal <> 'NA' and Sport ='hockey'
+  group by Sport,Games
+  order by medals desc
